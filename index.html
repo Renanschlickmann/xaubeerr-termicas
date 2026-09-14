@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#123c2d" />
+  <title>Controle de Térmicas</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <section id="loginScreen" class="screen login-screen">
+      <div class="brand brand-login">
+        <div class="brand-icon">T</div>
+        <div>
+          <h1>Controle de Térmicas</h1>
+          <p>Acesso da equipe</p>
+        </div>
+      </div>
+
+      <form id="loginForm" class="card form-card">
+        <label>
+          E-mail
+          <input id="loginEmail" type="email" autocomplete="email" placeholder="seu@email.com" required />
+        </label>
+        <label>
+          Senha
+          <input id="loginPassword" type="password" autocomplete="current-password" placeholder="Sua senha" required />
+        </label>
+        <button class="btn btn-primary btn-full" type="submit">Entrar</button>
+        <p id="loginMessage" class="form-message" aria-live="polite"></p>
+      </form>
+    </section>
+
+    <section id="appScreen" class="screen hidden">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">CONTROLE DA EQUIPE</p>
+          <h1>Térmicas</h1>
+        </div>
+        <button id="logoutBtn" class="btn btn-ghost" type="button">Sair</button>
+      </header>
+
+      <div class="user-line">
+        <span>Conectado como</span>
+        <strong id="userEmail">-</strong>
+      </div>
+
+      <section class="stats-grid">
+        <article class="stat-card">
+          <span>Disponíveis</span>
+          <strong id="availableCount">0</strong>
+        </article>
+        <article class="stat-card">
+          <span>Emprestadas</span>
+          <strong id="borrowedCount">0</strong>
+        </article>
+      </section>
+
+      <section class="actions-grid">
+        <button class="action-btn" data-open-modal="registerModal" type="button">
+          <span class="action-icon">＋</span>
+          <span>Cadastrar</span>
+        </button>
+        <button class="action-btn" data-open-modal="loanModal" type="button">
+          <span class="action-icon">↗</span>
+          <span>Emprestar</span>
+        </button>
+        <button class="action-btn" data-open-modal="returnModal" type="button">
+          <span class="action-icon">↩</span>
+          <span>Devolver</span>
+        </button>
+      </section>
+
+      <section class="list-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">ESTOQUE</p>
+            <h2>Disponíveis</h2>
+          </div>
+        </div>
+        <div id="availableList" class="items-list"></div>
+      </section>
+
+      <section class="list-section">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">FORA DA EMPRESA</p>
+            <h2>Emprestadas</h2>
+          </div>
+        </div>
+        <div id="borrowedList" class="items-list"></div>
+      </section>
+    </section>
+  </main>
+
+  <div id="registerModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="registerTitle">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="registerTitle">Cadastrar térmica</h2>
+        <button class="icon-btn" data-close-modal type="button" aria-label="Fechar">×</button>
+      </div>
+      <form id="registerForm" class="modal-form">
+        <label>
+          Nome ou número da térmica
+          <input id="thermalName" type="text" maxlength="60" placeholder="Ex.: Térmica 01" required />
+        </label>
+        <button class="btn btn-primary btn-full" type="submit">Cadastrar</button>
+        <p id="registerMessage" class="form-message" aria-live="polite"></p>
+      </form>
+    </div>
+  </div>
+
+  <div id="loanModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="loanTitle">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="loanTitle">Emprestar térmica</h2>
+        <button class="icon-btn" data-close-modal type="button" aria-label="Fechar">×</button>
+      </div>
+      <form id="loanForm" class="modal-form">
+        <label>
+          Térmica disponível
+          <select id="loanThermal" required>
+            <option value="">Selecione...</option>
+          </select>
+        </label>
+        <label>
+          Para quem foi?
+          <input id="loanPerson" type="text" maxlength="100" placeholder="Nome do cliente/pessoa" required />
+        </label>
+        <label>
+          Onde?
+          <input id="loanLocation" type="text" maxlength="120" placeholder="Local, evento ou endereço" required />
+        </label>
+        <p class="hint">A data e hora são registradas automaticamente.</p>
+        <button class="btn btn-primary btn-full" type="submit">Confirmar empréstimo</button>
+        <p id="loanMessage" class="form-message" aria-live="polite"></p>
+      </form>
+    </div>
+  </div>
+
+  <div id="returnModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="returnTitle">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h2 id="returnTitle">Devolver térmica</h2>
+        <button class="icon-btn" data-close-modal type="button" aria-label="Fechar">×</button>
+      </div>
+      <form id="returnForm" class="modal-form">
+        <label>
+          Térmica emprestada
+          <select id="returnThermal" required>
+            <option value="">Selecione...</option>
+          </select>
+        </label>
+        <button class="btn btn-primary btn-full" type="submit">Confirmar devolução</button>
+        <p id="returnMessage" class="form-message" aria-live="polite"></p>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
