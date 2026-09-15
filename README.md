@@ -1,4 +1,6 @@
-# Controle de Térmicas — V3
+# Controle de Térmicas — V3.1
+
+Alteração visual desta versão: atalhos da tela inicial em **Emprestar → Devolver → Cadastrar** e remoção do aviso "Controle por quantidade". Nenhuma alteração no Firebase ou nos dados.
 
 Versão por quantidade + melhorias para uso no celular.
 

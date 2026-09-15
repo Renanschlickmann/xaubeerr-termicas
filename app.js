@@ -72,7 +72,7 @@ let unsubscribeLoans = null;
 let unsubscribeMovements = null;
 let toastTimer = null;
 
-const APP_VERSION = "3.0.0";
+const APP_VERSION = "3.1.0";
 const REMEMBER_LOGIN_KEY = "termicas_remember_login";
 const REMEMBER_EMAIL_KEY = "termicas_login_email";
 const APP_VERSION_KEY = "termicas_app_version";

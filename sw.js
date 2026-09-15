@@ -1,4 +1,4 @@
-const CACHE_NAME = "termicas-runtime-v3";
+const CACHE_NAME = "termicas-runtime-v3-1";
 const APP_SHELL = [
   "./",
   "./index.html",
