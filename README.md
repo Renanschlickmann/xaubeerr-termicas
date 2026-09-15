@@ -1,178 +1,124 @@
-# Controle de Térmicas — versão por quantidade
+# Controle de Térmicas — V3
 
-Versão reorganizada para controlar muitas térmicas sem cadastrar uma por uma.
+Versão por quantidade + melhorias para uso no celular.
 
-## O que mudou
+## Novidades da V3
 
-- Cadastro por **litragem + quantidade total**.
-  - Ex.: `50 L = 20 unidades`.
-  - Ex.: `240 L = 8 unidades`.
-- Empréstimo por **tamanho + quantidade**.
-- O estoque disponível é reduzido automaticamente no empréstimo.
-- Na tela **Emprestadas**, o nome da pessoa aparece em destaque.
-- Botão **Devolver** diretamente no cartão do empréstimo.
-- A devolução já abre com a quantidade total preenchida; se houver devolução parcial, basta alterar o número.
-- Menu inferior separado em:
-  - Início
-  - Disponíveis
-  - Emprestadas
-  - Extrato
-- Campo de busca pelo nome da pessoa na tela de emprestadas.
-- Extrato de cadastro/ajuste de estoque, empréstimos e devoluções.
-- Login individual e sincronização em tempo real continuam funcionando.
+- Cadastro por litragem + quantidade total.
+- Empréstimo por quantidade.
+- Devolução direta pelo cartão da pessoa.
+- Devolução parcial.
+- Menus: Início, Disponíveis, Emprestadas e Extrato.
+- **Salvar login neste aparelho** usando a persistência segura do Firebase Authentication.
+- O sistema **não grava a senha em texto** no navegador.
+- Correção para evitar zoom acidental no celular.
+- Campos com fonte de 16px para evitar o zoom automático do iPhone ao focar inputs.
+- Service Worker com estratégia **network-first**: tenta baixar a versão publicada mais nova antes de usar cache.
+- Verificação automática de versão ao abrir o app, voltar para ele, recuperar internet e a cada 5 minutos.
+- Uso offline básico da última versão carregada.
 
 ---
 
-# IMPORTANTE SE A SUA VERSÃO ATUAL JÁ ESTÁ FUNCIONANDO
+# IMPORTANTE: se o seu Firebase já está funcionando
 
-Se você já colocou os dados reais do Firebase no arquivo `firebase-config.js`, **não perca esse arquivo**.
+**Não substitua o seu `firebase-config.js` configurado.**
 
-Para atualizar com segurança:
+O arquivo `firebase-config.js` deste ZIP está apenas como modelo. Mantenha o arquivo da sua instalação atual, que contém a configuração real do seu projeto Firebase.
 
-1. Faça uma cópia da sua pasta atual.
-2. Copie desta versão nova:
-   - `index.html`
-   - `style.css`
-   - `app.js`
-   - `firestore.rules`
-3. Mantenha o seu `firebase-config.js` atual, que já está configurado.
-4. Publique novamente as regras do arquivo `firestore.rules` no Firebase Console.
+Para atualizar sua pasta atual, faça backup e copie/substitua:
 
-O `firebase-config.js` deste ZIP continua com os campos `COLE_AQUI` porque as chaves do seu projeto ficam na sua cópia local.
+- `index.html`
+- `style.css`
+- `app.js`
+- `sw.js`
+- `version.json`
+- `manifest.webmanifest`
+
+O `firestore.rules` não mudou por causa dessas melhorias; pode manter as regras da V2 se já estão funcionando.
 
 ---
 
-# NOVA ESTRUTURA DO FIRESTORE
+# Salvar login
 
-Esta versão usa três coleções principais:
+Na tela de login existe a opção:
 
-## `inventory`
-Um documento para cada tamanho de térmica.
+`Salvar login neste aparelho`
 
-Exemplo para 50 litros:
+- Marcada: o Firebase mantém a sessão mesmo fechando e abrindo o navegador/app.
+- Desmarcada: a autenticação usa persistência apenas da sessão do navegador.
+- O e-mail pode ser lembrado localmente para facilitar o próximo acesso.
+- A senha não é salva pelo código do sistema.
 
-```text
-inventory/50
-  liters: 50
-  totalQuantity: 20
-  availableQuantity: 15
+Ao tocar em **Sair**, a sessão Firebase é encerrada normalmente.
+
+---
+
+# Atualização automática / cache
+
+A V3 contém:
+
+- `sw.js`: Service Worker.
+- `version.json`: número da versão publicada.
+
+O Service Worker busca os arquivos na internet primeiro, usando o cache apenas quando necessário. Isso evita que o celular fique preso numa versão antiga depois de uma publicação nova.
+
+O sistema também consulta `version.json` sem cache. Quando o número mudar, mostra:
+
+`Nova versão encontrada. Atualizando...`
+
+e recarrega o sistema.
+
+## Nas próximas versões
+
+Ao criar uma nova versão, altere o número em `version.json`, por exemplo:
+
+```json
+{
+  "version": "3.1.0"
+}
 ```
 
-Nesse exemplo existem 20 térmicas de 50 L no total e 5 estão emprestadas.
+Também é recomendado alterar a constante `APP_VERSION` no início do `app.js` para o mesmo número, embora a detecção automática use principalmente `version.json`.
 
-## `loans`
-Cada empréstimo vira um registro com:
+Depois publique todos os arquivos novos no Firebase Hosting.
 
-```text
-person
-location
-liters
-quantityBorrowed
-quantityOutstanding
-status
-borrowedAt
-borrowedByEmail
+---
+
+# Evitar zoom no celular
+
+A V3 inclui:
+
+- viewport limitado à escala 1;
+- `touch-action: manipulation` nos controles;
+- inputs/selects com 16px, evitando o zoom automático do Safari/iPhone ao tocar em um campo.
+
+---
+
+# Publicação
+
+Depois de substituir os arquivos na pasta que você já usa, publique novamente o site no Firebase Hosting da mesma forma que já publica seu projeto.
+
+Se usa Firebase CLI, normalmente o passo final é executado na pasta configurada para Hosting:
+
+```bash
+firebase deploy --only hosting
 ```
 
-## `movements`
-É o extrato. Registra:
-
-- ajuste de estoque;
-- empréstimo;
-- devolução.
+Não apague o Firestore nem os usuários do Authentication para fazer uma atualização do site.
 
 ---
 
-# ATENÇÃO AOS DADOS DA VERSÃO ANTIGA
-
-A versão anterior cadastrava cada térmica individualmente na coleção `thermals`.
-
-Esta versão nova trabalha por quantidade e usa `inventory` + `loans`. Os documentos antigos em `thermals` não são apagados, mas também não entram automaticamente nos novos totais.
-
-Se você ainda estava apenas testando, basta cadastrar o estoque real novamente pela nova tela.
-
-Se já existem muitos dados reais na versão antiga, mantenha um backup antes da troca.
-
----
-
-# FIREBASE — REGRAS
-
-No Firebase Console:
-
-1. Abra **Firestore Database**.
-2. Vá em **Rules / Regras**.
-3. Copie todo o conteúdo do arquivo `firestore.rules`.
-4. Substitua as regras atuais.
-5. Clique em **Publish / Publicar**.
-
-As regras permitem acesso apenas a usuários autenticados e liberam as novas coleções `inventory`, `loans` e `movements`.
-
----
-
-# COMO RODAR NO VS CODE
-
-1. Abra a pasta no VS Code.
-2. Confira se o seu `firebase-config.js` está preenchido.
-3. Abra `index.html`.
-4. Use a extensão **Live Server**.
-5. Clique em **Go Live**.
-6. Entre com um dos usuários cadastrados no Firebase Authentication.
-
----
-
-# COMO USAR
-
-## Primeiro cadastro
-
-Abra **Cadastrar**.
-
-Exemplo:
+# Estrutura
 
 ```text
-Tamanho: 50
-Quantidade total: 20
-```
-
-Depois cadastre outro tamanho:
-
-```text
-Tamanho: 240
-Quantidade total: 8
-```
-
-## Empréstimo
-
-Abra **Emprestar** e informe:
-
-```text
-Tamanho: 50 L
-Quantidade: 5
-Para quem: João
-Onde: Festa da comunidade
-```
-
-O sistema passa de 20 disponíveis para 15 disponíveis e cria um empréstimo de 5 para João.
-
-## Devolução
-
-1. Abra o menu **Emprestadas**.
-2. Procure pelo nome da pessoa.
-3. Toque em **Devolver** no cartão dela.
-4. A quantidade total pendente já aparece preenchida.
-5. Confirme.
-
-Se foram emprestadas 5 e voltaram somente 3, altere a quantidade para 3. O empréstimo continuará mostrando 2 pendentes.
-
----
-
-# Arquivos
-
-```text
-controle-termicas-firebase-v2/
+controle-termicas-firebase-v3/
 ├── index.html
 ├── style.css
 ├── app.js
-├── firebase-config.js
+├── firebase-config.js   ← mantenha o SEU arquivo já configurado
 ├── firestore.rules
+├── sw.js
+├── version.json
+├── manifest.webmanifest
 └── README.md
 ```

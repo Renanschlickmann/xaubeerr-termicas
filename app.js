@@ -3,7 +3,10 @@ import {
   getAuth,
   signInWithEmailAndPassword,
   signOut,
-  onAuthStateChanged
+  onAuthStateChanged,
+  setPersistence,
+  browserLocalPersistence,
+  browserSessionPersistence
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-auth.js";
 import {
   getFirestore,
@@ -28,6 +31,7 @@ const els = {
   loginForm: document.querySelector("#loginForm"),
   loginEmail: document.querySelector("#loginEmail"),
   loginPassword: document.querySelector("#loginPassword"),
+  rememberLogin: document.querySelector("#rememberLogin"),
   loginMessage: document.querySelector("#loginMessage"),
   logoutBtn: document.querySelector("#logoutBtn"),
   userEmail: document.querySelector("#userEmail"),
@@ -67,6 +71,93 @@ let unsubscribeInventory = null;
 let unsubscribeLoans = null;
 let unsubscribeMovements = null;
 let toastTimer = null;
+
+const APP_VERSION = "3.0.0";
+const REMEMBER_LOGIN_KEY = "termicas_remember_login";
+const REMEMBER_EMAIL_KEY = "termicas_login_email";
+const APP_VERSION_KEY = "termicas_app_version";
+
+function restoreLoginPreference() {
+  const remember = localStorage.getItem(REMEMBER_LOGIN_KEY) === "1";
+  els.rememberLogin.checked = remember;
+  if (remember) {
+    els.loginEmail.value = localStorage.getItem(REMEMBER_EMAIL_KEY) || "";
+  }
+}
+
+async function configureLoginPersistence() {
+  const remember = els.rememberLogin.checked;
+  await setPersistence(auth, remember ? browserLocalPersistence : browserSessionPersistence);
+
+  if (remember) {
+    localStorage.setItem(REMEMBER_LOGIN_KEY, "1");
+    localStorage.setItem(REMEMBER_EMAIL_KEY, els.loginEmail.value.trim());
+  } else {
+    localStorage.removeItem(REMEMBER_LOGIN_KEY);
+    localStorage.removeItem(REMEMBER_EMAIL_KEY);
+  }
+}
+
+async function checkAppVersion() {
+  try {
+    const response = await fetch(`./version.json?t=${Date.now()}`, { cache: "no-store" });
+    if (!response.ok) return;
+    const data = await response.json();
+    const remoteVersion = String(data.version || "").trim();
+    if (!remoteVersion) return;
+
+    const previousVersion = localStorage.getItem(APP_VERSION_KEY);
+    if (!previousVersion) {
+      localStorage.setItem(APP_VERSION_KEY, remoteVersion);
+      return;
+    }
+
+    if (previousVersion !== remoteVersion) {
+      localStorage.setItem(APP_VERSION_KEY, remoteVersion);
+      showToast("Nova versão encontrada. Atualizando...");
+      setTimeout(() => window.location.reload(), 900);
+    }
+  } catch (error) {
+    console.debug("Verificação de versão indisponível:", error);
+  }
+}
+
+function registerAutoUpdate() {
+  if (!("serviceWorker" in navigator)) return;
+
+  window.addEventListener("load", async () => {
+    try {
+      const registration = await navigator.serviceWorker.register("./sw.js", { updateViaCache: "none" });
+      await registration.update();
+
+      let reloading = false;
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (reloading) return;
+        reloading = true;
+        window.location.reload();
+      });
+
+      window.addEventListener("online", () => {
+        registration.update().catch(() => {});
+        checkAppVersion();
+      });
+
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") {
+          registration.update().catch(() => {});
+          checkAppVersion();
+        }
+      });
+
+      setInterval(() => {
+        registration.update().catch(() => {});
+        checkAppVersion();
+      }, 5 * 60 * 1000);
+    } catch (error) {
+      console.debug("Service Worker não pôde ser registrado:", error);
+    }
+  });
+}
 
 function currentUserData() {
   return {
@@ -384,12 +475,13 @@ els.loginForm.addEventListener("submit", async event => {
   submitButton.textContent = "Entrando...";
 
   try {
+    await configureLoginPersistence();
     await signInWithEmailAndPassword(
       auth,
       els.loginEmail.value.trim(),
       els.loginPassword.value
     );
-    els.loginForm.reset();
+    els.loginPassword.value = "";
   } catch (error) {
     console.error(error);
     els.loginMessage.textContent = "E-mail ou senha incorretos, ou usuário não autorizado.";
@@ -683,6 +775,10 @@ document.addEventListener("keydown", event => {
     document.querySelectorAll(".modal:not(.hidden)").forEach(closeModal);
   }
 });
+
+restoreLoginPreference();
+registerAutoUpdate();
+checkAppVersion();
 
 onAuthStateChanged(auth, user => {
   if (user) {
