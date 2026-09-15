@@ -15,7 +15,7 @@ import {
   onSnapshot,
   query,
   orderBy,
-  limit,
+  where,
   serverTimestamp,
   runTransaction
 } from "https://www.gstatic.com/firebasejs/12.19.0/firebase-firestore.js";
@@ -39,7 +39,6 @@ const els = {
   borrowedCount: document.querySelector("#borrowedCount"),
   availableList: document.querySelector("#availableList"),
   borrowedList: document.querySelector("#borrowedList"),
-  historyList: document.querySelector("#historyList"),
   borrowedSearch: document.querySelector("#borrowedSearch"),
 
   stockForm: document.querySelector("#stockForm"),
@@ -66,13 +65,11 @@ const els = {
 
 let inventoryItems = [];
 let loans = [];
-let movements = [];
 let unsubscribeInventory = null;
 let unsubscribeLoans = null;
-let unsubscribeMovements = null;
 let toastTimer = null;
 
-const APP_VERSION = "3.1.0";
+const APP_VERSION = "3.2.0";
 const REMEMBER_LOGIN_KEY = "termicas_remember_login";
 const REMEMBER_EMAIL_KEY = "termicas_login_email";
 const APP_VERSION_KEY = "termicas_app_version";
@@ -313,70 +310,10 @@ function renderBorrowed() {
     : `<div class="empty-state">${term ? "Nenhum empréstimo encontrado para essa busca." : "Nenhuma térmica emprestada no momento."}</div>`;
 }
 
-function movementPresentation(item) {
-  const qty = Number(item.quantity || 0);
-  const liters = item.liters ? `${item.liters} L` : "térmicas";
-
-  if (item.type === "emprestimo") {
-    return {
-      icon: "↗",
-      iconClass: "out",
-      title: `${qty} ${pluralThermal(qty)} de ${liters} para ${item.person || "-"}`,
-      detail: `Local: ${item.location || "-"} • por ${item.userEmail || "Equipe"}`
-    };
-  }
-
-  if (item.type === "devolucao") {
-    return {
-      icon: "↩",
-      iconClass: "",
-      title: `${item.person || "-"} devolveu ${qty} ${pluralThermal(qty)} de ${liters}`,
-      detail: `Registrado por ${item.userEmail || "Equipe"}`
-    };
-  }
-
-  if (item.type === "estoque_ajuste") {
-    const delta = Number(item.delta || 0);
-    const deltaText = delta > 0 ? `+${delta}` : String(delta);
-    return {
-      icon: "+",
-      iconClass: "",
-      title: `Estoque de ${liters} definido para ${Number(item.newTotal || 0)} unidades`,
-      detail: `Alteração ${deltaText} • por ${item.userEmail || "Equipe"}`
-    };
-  }
-
-  return {
-    icon: "•",
-    iconClass: "",
-    title: "Movimentação registrada",
-    detail: item.userEmail || "Equipe"
-  };
-}
-
-function renderHistory() {
-  els.historyList.innerHTML = movements.length
-    ? movements.map(item => {
-        const info = movementPresentation(item);
-        return `
-          <article class="timeline-card">
-            <div class="timeline-icon ${info.iconClass}">${info.icon}</div>
-            <div class="timeline-body">
-              <strong>${escapeHtml(info.title)}</strong>
-              <p>${escapeHtml(info.detail)}</p>
-              <time>${formatDate(item.createdAt)}</time>
-            </div>
-          </article>
-        `;
-      }).join("")
-    : `<div class="empty-state">O extrato aparecerá aqui conforme você cadastrar, emprestar e devolver térmicas.</div>`;
-}
-
 function renderAll() {
   updateStats();
   renderAvailable();
   renderBorrowed();
-  renderHistory();
 }
 
 function fillLoanInventory() {
@@ -428,7 +365,6 @@ function openReturnModal(loanId) {
 function startRealtimeListeners() {
   unsubscribeInventory?.();
   unsubscribeLoans?.();
-  unsubscribeMovements?.();
 
   unsubscribeInventory = onSnapshot(
     query(collection(db, "inventory"), orderBy("liters")),
@@ -442,10 +378,18 @@ function startRealtimeListeners() {
     }
   );
 
+  // Só mantém empréstimos ATIVOS em tempo real.
+  // Os devolvidos deixam de ser lidos pelo app, evitando que o sistema fique pesado com o tempo.
   unsubscribeLoans = onSnapshot(
-    query(collection(db, "loans"), orderBy("borrowedAt", "desc"), limit(300)),
+    query(collection(db, "loans"), where("status", "==", "ativo")),
     snapshot => {
-      loans = snapshot.docs.map(item => ({ id: item.id, ...item.data() }));
+      loans = snapshot.docs
+        .map(item => ({ id: item.id, ...item.data() }))
+        .sort((a, b) => {
+          const ta = a.borrowedAt?.toMillis?.() || 0;
+          const tb = b.borrowedAt?.toMillis?.() || 0;
+          return tb - ta;
+        });
       renderAll();
     },
     error => {
@@ -453,18 +397,12 @@ function startRealtimeListeners() {
       showToast("Não foi possível carregar os empréstimos.");
     }
   );
+}
 
-  unsubscribeMovements = onSnapshot(
-    query(collection(db, "movements"), orderBy("createdAt", "desc"), limit(200)),
-    snapshot => {
-      movements = snapshot.docs.map(item => ({ id: item.id, ...item.data() }));
-      renderHistory();
-    },
-    error => {
-      console.error(error);
-      showToast("Não foi possível carregar o extrato.");
-    }
-  );
+function refreshFromFirebase() {
+  // Em caso raro de falha numa operação otimista, reinicia os listeners
+  // para trazer a verdade atual do servidor sem manter estado incorreto na tela.
+  startRealtimeListeners();
 }
 
 els.loginForm.addEventListener("submit", async event => {
@@ -500,7 +438,6 @@ els.stockForm.addEventListener("submit", async event => {
   els.stockMessage.textContent = "";
   const submitButton = event.submitter;
   submitButton.disabled = true;
-  submitButton.textContent = "Salvando...";
 
   const liters = toInt(els.stockLiters.value);
   const newTotal = toInt(els.stockQuantity.value);
@@ -510,8 +447,33 @@ els.stockForm.addEventListener("submit", async event => {
     if (newTotal < 0) throw new Error("Informe uma quantidade válida.");
 
     const inventoryId = String(liters);
+    const existing = inventoryItems.find(item => item.id === inventoryId);
+    const oldTotalLocal = Number(existing?.totalQuantity || 0);
+    const oldAvailableLocal = Number(existing?.availableQuantity || 0);
+    const borrowedNowLocal = Math.max(0, oldTotalLocal - oldAvailableLocal);
+    if (newTotal < borrowedNowLocal) {
+      throw new Error(`Existem ${borrowedNowLocal} térmicas desse tamanho emprestadas. O total não pode ficar abaixo disso.`);
+    }
+
+    // Atualiza a tela imediatamente. O Firebase confirma em segundo plano.
+    const optimisticStock = {
+      ...(existing || {}),
+      id: inventoryId,
+      liters,
+      totalQuantity: newTotal,
+      availableQuantity: newTotal - borrowedNowLocal
+    };
+    if (existing) {
+      inventoryItems = inventoryItems.map(item => item.id === inventoryId ? optimisticStock : item);
+    } else {
+      inventoryItems = [...inventoryItems, optimisticStock];
+    }
+    renderAll();
+    els.stockForm.reset();
+    closeModal(document.querySelector("#stockModal"));
+    showToast(`Estoque de ${liters} L atualizado.`);
+
     const inventoryRef = doc(db, "inventory", inventoryId);
-    const movementRef = doc(collection(db, "movements"));
     const user = currentUserData();
 
     await runTransaction(db, async transaction => {
@@ -525,11 +487,10 @@ els.stockForm.addEventListener("submit", async event => {
         throw new Error(`Existem ${borrowedNow} térmicas desse tamanho emprestadas. O total não pode ficar abaixo disso.`);
       }
 
-      const newAvailable = newTotal - borrowedNow;
       const stockData = {
         liters,
         totalQuantity: newTotal,
-        availableQuantity: newAvailable,
+        availableQuantity: newTotal - borrowedNow,
         updatedAt: serverTimestamp(),
         updatedByUid: user.uid,
         updatedByEmail: user.email
@@ -545,29 +506,13 @@ els.stockForm.addEventListener("submit", async event => {
           createdByEmail: user.email
         });
       }
-
-      transaction.set(movementRef, {
-        type: "estoque_ajuste",
-        inventoryId,
-        liters,
-        oldTotal,
-        newTotal,
-        delta: newTotal - oldTotal,
-        createdAt: serverTimestamp(),
-        userUid: user.uid,
-        userEmail: user.email
-      });
     });
-
-    els.stockForm.reset();
-    closeModal(document.querySelector("#stockModal"));
-    showToast(`Estoque de ${liters} L atualizado.`);
   } catch (error) {
     console.error(error);
-    els.stockMessage.textContent = error.message || "Erro ao salvar estoque.";
+    refreshFromFirebase();
+    showToast(error.message || "Não foi possível salvar o estoque.");
   } finally {
     submitButton.disabled = false;
-    submitButton.textContent = "Salvar estoque";
   }
 });
 
@@ -576,7 +521,6 @@ els.loanForm.addEventListener("submit", async event => {
   els.loanMessage.textContent = "";
   const submitButton = event.submitter;
   submitButton.disabled = true;
-  submitButton.textContent = "Salvando...";
 
   const inventoryId = els.loanInventory.value;
   const quantity = toInt(els.loanQuantity.value);
@@ -588,11 +532,43 @@ els.loanForm.addEventListener("submit", async event => {
       throw new Error("Preencha todos os campos.");
     }
 
+    const stockLocal = inventoryItems.find(item => item.id === inventoryId);
+    if (!stockLocal) throw new Error("Esse tamanho não está cadastrado no estoque.");
+    const availableLocal = Number(stockLocal.availableQuantity || 0);
+    if (quantity > availableLocal) {
+      throw new Error(`Só existem ${availableLocal} térmicas de ${stockLocal.liters} L disponíveis.`);
+    }
+
     const inventoryRef = doc(db, "inventory", inventoryId);
     const loanRef = doc(collection(db, "loans"));
-    const movementRef = doc(collection(db, "movements"));
     const user = currentUserData();
 
+    // Feedback otimista: a pessoa toca e a tela responde na hora.
+    inventoryItems = inventoryItems.map(item => item.id === inventoryId
+      ? { ...item, availableQuantity: availableLocal - quantity }
+      : item
+    );
+    loans = [{
+      id: loanRef.id,
+      inventoryId,
+      liters: Number(stockLocal.liters),
+      person,
+      location,
+      quantityBorrowed: quantity,
+      quantityOutstanding: quantity,
+      status: "ativo",
+      borrowedAt: null,
+      borrowedByUid: user.uid,
+      borrowedByEmail: user.email
+    }, ...loans];
+    renderAll();
+    els.loanForm.reset();
+    updateLoanAvailableHint();
+    closeModal(document.querySelector("#loanModal"));
+    showToast("Empréstimo registrado.");
+
+    // A transação continua protegendo contra dois funcionários emprestarem
+    // a mesma quantidade ao mesmo tempo. Ela só não trava mais a interface.
     await runTransaction(db, async transaction => {
       const stockSnap = await transaction.get(inventoryRef);
       if (!stockSnap.exists()) throw new Error("Esse tamanho não está cadastrado no estoque.");
@@ -622,31 +598,13 @@ els.loanForm.addEventListener("submit", async event => {
         borrowedByUid: user.uid,
         borrowedByEmail: user.email
       });
-
-      transaction.set(movementRef, {
-        type: "emprestimo",
-        loanId: loanRef.id,
-        inventoryId,
-        liters: Number(stock.liters),
-        quantity,
-        person,
-        location,
-        createdAt: serverTimestamp(),
-        userUid: user.uid,
-        userEmail: user.email
-      });
     });
-
-    els.loanForm.reset();
-    updateLoanAvailableHint();
-    closeModal(document.querySelector("#loanModal"));
-    showToast("Empréstimo registrado.");
   } catch (error) {
     console.error(error);
-    els.loanMessage.textContent = error.message || "Erro ao registrar empréstimo.";
+    refreshFromFirebase();
+    showToast(error.message || "Não foi possível registrar o empréstimo.");
   } finally {
     submitButton.disabled = false;
-    submitButton.textContent = "Confirmar empréstimo";
   }
 });
 
@@ -655,7 +613,6 @@ els.returnForm.addEventListener("submit", async event => {
   els.returnMessage.textContent = "";
   const submitButton = event.submitter;
   submitButton.disabled = true;
-  submitButton.textContent = "Salvando...";
 
   const loanId = els.returnLoanId.value;
   const quantity = toInt(els.returnQuantity.value);
@@ -663,9 +620,41 @@ els.returnForm.addEventListener("submit", async event => {
   try {
     if (!loanId || quantity <= 0) throw new Error("Informe a quantidade devolvida.");
 
-    const loanRef = doc(db, "loans", loanId);
-    const movementRef = doc(collection(db, "movements"));
+    const loanLocal = getActiveLoans().find(item => item.id === loanId);
+    if (!loanLocal) throw new Error("Esse empréstimo já foi devolvido.");
+    const outstandingLocal = Number(loanLocal.quantityOutstanding || 0);
+    if (quantity > outstandingLocal) {
+      throw new Error(`Faltam devolver apenas ${outstandingLocal} térmicas nesse empréstimo.`);
+    }
+
+    const stockLocal = inventoryItems.find(item => item.id === loanLocal.inventoryId);
+    if (!stockLocal) throw new Error("Estoque desse tamanho não foi encontrado.");
+    const currentAvailableLocal = Number(stockLocal.availableQuantity || 0);
+    const totalLocal = Number(stockLocal.totalQuantity || 0);
+    if (currentAvailableLocal + quantity > totalLocal) {
+      throw new Error("A devolução ultrapassaria o total cadastrado desse tamanho. Confira o estoque.");
+    }
+
+    const remainingLocal = outstandingLocal - quantity;
     const user = currentUserData();
+
+    // Atualiza a tela imediatamente antes de esperar a internet.
+    inventoryItems = inventoryItems.map(item => item.id === loanLocal.inventoryId
+      ? { ...item, availableQuantity: currentAvailableLocal + quantity }
+      : item
+    );
+    loans = loans
+      .map(item => item.id === loanId
+        ? { ...item, quantityOutstanding: remainingLocal, status: remainingLocal === 0 ? "devolvido" : "ativo" }
+        : item
+      )
+      .filter(item => item.status === "ativo" && Number(item.quantityOutstanding) > 0);
+    renderAll();
+    els.returnForm.reset();
+    closeModal(document.querySelector("#returnModal"));
+    showToast("Devolução registrada.");
+
+    const loanRef = doc(db, "loans", loanId);
 
     await runTransaction(db, async transaction => {
       const loanSnap = await transaction.get(loanRef);
@@ -712,31 +701,13 @@ els.returnForm.addEventListener("submit", async event => {
           returnedByEmail: user.email
         } : {})
       });
-
-      transaction.set(movementRef, {
-        type: "devolucao",
-        loanId,
-        inventoryId: loan.inventoryId,
-        liters: Number(loan.liters),
-        quantity,
-        person: loan.person || "",
-        location: loan.location || "",
-        remainingAfterReturn: remaining,
-        createdAt: serverTimestamp(),
-        userUid: user.uid,
-        userEmail: user.email
-      });
     });
-
-    els.returnForm.reset();
-    closeModal(document.querySelector("#returnModal"));
-    showToast("Devolução registrada.");
   } catch (error) {
     console.error(error);
-    els.returnMessage.textContent = error.message || "Erro ao registrar devolução.";
+    refreshFromFirebase();
+    showToast(error.message || "Não foi possível registrar a devolução.");
   } finally {
     submitButton.disabled = false;
-    submitButton.textContent = "Marcar como devolvida";
   }
 });
 
@@ -790,13 +761,10 @@ onAuthStateChanged(auth, user => {
   } else {
     unsubscribeInventory?.();
     unsubscribeLoans?.();
-    unsubscribeMovements?.();
     unsubscribeInventory = null;
     unsubscribeLoans = null;
-    unsubscribeMovements = null;
     inventoryItems = [];
     loans = [];
-    movements = [];
     els.appScreen.classList.add("hidden");
     els.loginScreen.classList.remove("hidden");
     els.userEmail.textContent = "-";
@@ -804,6 +772,5 @@ onAuthStateChanged(auth, user => {
     els.borrowedCount.textContent = "0";
     els.availableList.innerHTML = "";
     els.borrowedList.innerHTML = "";
-    els.historyList.innerHTML = "";
   }
 });

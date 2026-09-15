@@ -260,7 +260,7 @@ input:focus, select:focus { border-color: var(--green-2); box-shadow: 0 0 0 3px 
   z-index: 30;
   width: min(calc(100% - 24px), 728px);
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   padding: 7px;
   background: rgba(255,255,255,.96);
   border: 1px solid var(--line);
