@@ -2,9 +2,14 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Sistema interno: qualquer usuário autenticado pode consultar e alterar
-    // o estoque e os movimentos compartilhados da equipe.
-    match /thermals/{thermalId} {
+    // Qualquer usuário autenticado da equipe pode consultar e alterar
+    // o estoque e os empréstimos compartilhados.
+    match /inventory/{inventoryId} {
+      allow read, create, update: if request.auth != null;
+      allow delete: if false;
+    }
+
+    match /loans/{loanId} {
       allow read, create, update: if request.auth != null;
       allow delete: if false;
     }
@@ -14,7 +19,12 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // Bloqueia qualquer coleção não prevista acima.
+    // Mantido para não quebrar a versão antiga enquanto você atualiza.
+    match /thermals/{thermalId} {
+      allow read, create, update: if request.auth != null;
+      allow delete: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }

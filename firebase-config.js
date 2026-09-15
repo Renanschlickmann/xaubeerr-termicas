@@ -3,10 +3,10 @@
 // 3) Copie o objeto firebaseConfig e substitua os valores abaixo.
 
 export const firebaseConfig = {
-  apiKey: "AIzaSyAJXMa-U5Hq95USVc376-kWRhZVSuH0dVg",
-  authDomain: "xaubeer-termicas.firebaseapp.com",
-  projectId: "xaubeer-termicas",
-  storageBucket: "xaubeer-termicas.firebasestorage.app",
-  messagingSenderId: "1047585743636",
-  appId: "1:1047585743636:web:cf86cee673e36528d05801"
+  apiKey: "COLE_AQUI",
+  authDomain: "COLE_AQUI",
+  projectId: "COLE_AQUI",
+  storageBucket: "COLE_AQUI",
+  messagingSenderId: "COLE_AQUI",
+  appId: "COLE_AQUI"
 };

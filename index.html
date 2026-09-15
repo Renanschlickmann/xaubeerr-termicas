@@ -46,67 +46,131 @@
         <strong id="userEmail">-</strong>
       </div>
 
-      <section class="stats-grid">
-        <article class="stat-card">
-          <span>Disponíveis</span>
-          <strong id="availableCount">0</strong>
-        </article>
-        <article class="stat-card">
-          <span>Emprestadas</span>
-          <strong id="borrowedCount">0</strong>
-        </article>
+      <section id="view-home" class="app-view">
+        <section class="stats-grid">
+          <article class="stat-card">
+            <span>Disponíveis</span>
+            <strong id="availableCount">0</strong>
+          </article>
+          <article class="stat-card">
+            <span>Emprestadas</span>
+            <strong id="borrowedCount">0</strong>
+          </article>
+        </section>
+
+        <section class="home-card">
+          <p class="eyebrow">ATALHOS</p>
+          <h2>O que deseja fazer?</h2>
+          <div class="actions-grid">
+            <button class="action-btn" data-open-modal="stockModal" type="button">
+              <span class="action-icon">＋</span>
+              <span>Cadastrar</span>
+              <small>Quantidade e litragem</small>
+            </button>
+            <button class="action-btn" data-open-modal="loanModal" type="button">
+              <span class="action-icon">↗</span>
+              <span>Emprestar</span>
+              <small>Escolher tamanho e quantidade</small>
+            </button>
+            <button class="action-btn" data-go-view="borrowed" type="button">
+              <span class="action-icon">↩</span>
+              <span>Devolver</span>
+              <small>Achar pelo nome</small>
+            </button>
+          </div>
+        </section>
+
+        <section class="info-card">
+          <div class="info-icon">✓</div>
+          <div>
+            <strong>Controle por quantidade</strong>
+            <p>Ex.: 20 térmicas de 50 L e 8 térmicas de 240 L. O sistema calcula automaticamente o que está disponível e emprestado.</p>
+          </div>
+        </section>
       </section>
 
-      <section class="actions-grid">
-        <button class="action-btn" data-open-modal="registerModal" type="button">
-          <span class="action-icon">＋</span>
-          <span>Cadastrar</span>
-        </button>
-        <button class="action-btn" data-open-modal="loanModal" type="button">
-          <span class="action-icon">↗</span>
-          <span>Emprestar</span>
-        </button>
-        <button class="action-btn" data-open-modal="returnModal" type="button">
-          <span class="action-icon">↩</span>
-          <span>Devolver</span>
-        </button>
-      </section>
-
-      <section class="list-section">
-        <div class="section-heading">
+      <section id="view-available" class="app-view hidden">
+        <div class="section-heading page-heading">
           <div>
             <p class="eyebrow">ESTOQUE</p>
-            <h2>Disponíveis</h2>
+            <h2>Térmicas disponíveis</h2>
           </div>
+          <button class="btn btn-small btn-primary" data-open-modal="stockModal" type="button">+ Estoque</button>
         </div>
         <div id="availableList" class="items-list"></div>
       </section>
 
-      <section class="list-section">
-        <div class="section-heading">
+      <section id="view-borrowed" class="app-view hidden">
+        <div class="section-heading page-heading">
           <div>
             <p class="eyebrow">FORA DA EMPRESA</p>
-            <h2>Emprestadas</h2>
+            <h2>Térmicas emprestadas</h2>
           </div>
+          <button class="btn btn-small btn-primary" data-open-modal="loanModal" type="button">Emprestar</button>
+        </div>
+
+        <div class="search-box">
+          <span>⌕</span>
+          <input id="borrowedSearch" type="search" placeholder="Buscar pelo nome da pessoa..." autocomplete="off" />
         </div>
         <div id="borrowedList" class="items-list"></div>
       </section>
+
+      <section id="view-history" class="app-view hidden">
+        <div class="section-heading page-heading">
+          <div>
+            <p class="eyebrow">MOVIMENTAÇÕES</p>
+            <h2>Extrato</h2>
+          </div>
+        </div>
+        <div id="historyList" class="timeline-list"></div>
+      </section>
+
+      <nav class="bottom-nav" aria-label="Menu principal">
+        <button class="nav-btn active" data-view="home" type="button">
+          <span class="nav-icon">⌂</span>
+          <span>Início</span>
+        </button>
+        <button class="nav-btn" data-view="available" type="button">
+          <span class="nav-icon">▦</span>
+          <span>Disponíveis</span>
+        </button>
+        <button class="nav-btn" data-view="borrowed" type="button">
+          <span class="nav-icon">↗</span>
+          <span>Emprestadas</span>
+        </button>
+        <button class="nav-btn" data-view="history" type="button">
+          <span class="nav-icon">≡</span>
+          <span>Extrato</span>
+        </button>
+      </nav>
     </section>
   </main>
 
-  <div id="registerModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="registerTitle">
+  <div id="stockModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="stockTitle">
     <div class="modal-card">
       <div class="modal-header">
-        <h2 id="registerTitle">Cadastrar térmica</h2>
+        <div>
+          <p class="eyebrow">ESTOQUE</p>
+          <h2 id="stockTitle">Cadastrar quantidade</h2>
+        </div>
         <button class="icon-btn" data-close-modal type="button" aria-label="Fechar">×</button>
       </div>
-      <form id="registerForm" class="modal-form">
+      <form id="stockForm" class="modal-form">
         <label>
-          Nome ou número da térmica
-          <input id="thermalName" type="text" maxlength="60" placeholder="Ex.: Térmica 01" required />
+          Tamanho da térmica (litros)
+          <div class="input-suffix">
+            <input id="stockLiters" type="number" min="1" max="5000" step="1" inputmode="numeric" placeholder="Ex.: 50" required />
+            <span>L</span>
+          </div>
         </label>
-        <button class="btn btn-primary btn-full" type="submit">Cadastrar</button>
-        <p id="registerMessage" class="form-message" aria-live="polite"></p>
+        <label>
+          Quantas térmicas desse tamanho você tem?
+          <input id="stockQuantity" type="number" min="0" max="99999" step="1" inputmode="numeric" placeholder="Ex.: 20" required />
+        </label>
+        <p class="hint">Se esse tamanho já estiver cadastrado, o sistema ajusta o total sem apagar os empréstimos atuais.</p>
+        <button class="btn btn-primary btn-full" type="submit">Salvar estoque</button>
+        <p id="stockMessage" class="form-message" aria-live="polite"></p>
       </form>
     </div>
   </div>
@@ -114,15 +178,23 @@
   <div id="loanModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="loanTitle">
     <div class="modal-card">
       <div class="modal-header">
-        <h2 id="loanTitle">Emprestar térmica</h2>
+        <div>
+          <p class="eyebrow">SAÍDA</p>
+          <h2 id="loanTitle">Emprestar térmicas</h2>
+        </div>
         <button class="icon-btn" data-close-modal type="button" aria-label="Fechar">×</button>
       </div>
       <form id="loanForm" class="modal-form">
         <label>
-          Térmica disponível
-          <select id="loanThermal" required>
+          Tamanho
+          <select id="loanInventory" required>
             <option value="">Selecione...</option>
           </select>
+        </label>
+        <label>
+          Quantidade
+          <input id="loanQuantity" type="number" min="1" step="1" inputmode="numeric" placeholder="Ex.: 5" required />
+          <span id="loanAvailableHint" class="field-hint"></span>
         </label>
         <label>
           Para quem foi?
@@ -132,7 +204,7 @@
           Onde?
           <input id="loanLocation" type="text" maxlength="120" placeholder="Local, evento ou endereço" required />
         </label>
-        <p class="hint">A data e hora são registradas automaticamente.</p>
+        <p class="hint">A data, hora e o funcionário são registrados automaticamente.</p>
         <button class="btn btn-primary btn-full" type="submit">Confirmar empréstimo</button>
         <p id="loanMessage" class="form-message" aria-live="polite"></p>
       </form>
@@ -142,17 +214,21 @@
   <div id="returnModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="returnTitle">
     <div class="modal-card">
       <div class="modal-header">
-        <h2 id="returnTitle">Devolver térmica</h2>
+        <div>
+          <p class="eyebrow">DEVOLUÇÃO</p>
+          <h2 id="returnTitle">Confirmar devolução</h2>
+        </div>
         <button class="icon-btn" data-close-modal type="button" aria-label="Fechar">×</button>
       </div>
       <form id="returnForm" class="modal-form">
+        <div id="returnSummary" class="return-summary"></div>
         <label>
-          Térmica emprestada
-          <select id="returnThermal" required>
-            <option value="">Selecione...</option>
-          </select>
+          Quantidade devolvida
+          <input id="returnQuantity" type="number" min="1" step="1" inputmode="numeric" required />
+          <span class="field-hint">Já deixamos o total preenchido. Só altere se a pessoa devolveu apenas uma parte.</span>
         </label>
-        <button class="btn btn-primary btn-full" type="submit">Confirmar devolução</button>
+        <input id="returnLoanId" type="hidden" />
+        <button class="btn btn-primary btn-full" type="submit">Marcar como devolvida</button>
         <p id="returnMessage" class="form-message" aria-live="polite"></p>
       </form>
     </div>
